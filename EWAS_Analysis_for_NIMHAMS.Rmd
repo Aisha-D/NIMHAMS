@@ -1,0 +1,126 @@
+---
+title: "EWAS Analysis for NIMHAMS"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load the data
+The normalised data for Frontal and Cerebellum will be loaded in seperately.
+
+```{r loading data}
+library("IlluminaHumanMethylation450kanno.ilmn12.hg19")
+setwd("/mnt/data1/NIMHANS/Down_stream_analysis/") ## change to working directory path
+load("NIMHAM_CER_Normalised_snpsremoved.rdat") ## Load in the cerebellum.
+#as the frontal and cerebellum will have the same name dataset anmes, renaming the pheno and beta will help differeniate the two
+pheno_c <- pheno
+betas_c <- betas
+
+load("NIMHAM_FPC_Normalised_snpsremoved.rdat") ## Load in the cerebellum.
+#as the frontal and cerebellum will have the same name dataset anmes, renaming the pheno and beta will help differeniate the two
+pheno_f <- pheno
+betas_f <- betas
+
+rm(pheno,betas) #remove the non-labelled betas and pheno files as it maybe confusing later on
+
+## these commands create a folder to save the EWAS output
+if(!dir.exists("EWAS")){
+  dir.create("EWAS")
+}
+if(!dir.exists("EWAS/Plots")){
+  dir.create("EWAS/Plots")
+}
+
+```
+
+## Run the EWAS
+
+We have several co-variants to consider. In this experiment, we will consider the chip location, age and sex as we have already seperated the brain regions.
+
+```{r linear model for frontal}
+#set betas here to what beta region you want
+betas <- betas_f
+pheno <- pheno_f
+#creat an empty matrix of the probes with 3 columns.
+res<-matrix(data = NA, nrow = nrow(betas), ncol = 6)
+colnames(res)<-c("Sex_Beta", "Sex_SE", "Sex_P", "Age_Beta", "Age_SE", "Age_P")
+rownames(res)<-rownames(betas)
+pheno$Age <- as.integer(pheno$Age)
+pheno$Chip<- as.character(pheno$Chip)
+#for(i in 1:nrow(betas)){ #(this is what you would type to perform regression on all probes)
+for(i in 1:nrow(betas)){
+    model<-lm(betas[i,] ~ pheno$Age + factor(pheno$Sex) + pheno$Chip)
+    res[i,1]<-coefficients(model)["pheno$Age" ]
+    res[i,2]<-summary(model)$coefficients["pheno$Age",2]
+    res[i,3]<-summary(model)$coefficients["pheno$Age",4]
+    res[i,4]<-coefficients(model)["factor(pheno$Sex)M" ]
+    res[i,5]<-summary(model)$coefficients["factor(pheno$Sex)M",2]
+    res[i,6]<-summary(model)$coefficients["factor(pheno$Sex)M",4]
+    }
+# head(res) 
+
+#need to make the beta and SE as percentage
+res[,"Sex_Beta"] <- res[,"Sex_Beta"]*100
+res[,"Sex_SE"] <- res[,"Sex_SE"]*100
+res[,"Age_Beta"] <- res[,"Age_Beta"]*100
+res[,"Age_SE"] <- res[,"Age_SE"]*100
+# head(res) #535566 rows, 6 columns
+# write.csv(res, 'res.csv')
+```
+
+Once the res table is generated. Save as it taken times to usually run it
+
+````{r annotations}
+# read the res file
+res <- read.csv('res.csv', header = T, row.names = 1)
+data(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+data(Manifest)
+data(Locations)
+data(Islands.UCSC)
+data(Other)
+
+head(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+head(Manifest)
+head(Locations)
+head(Other)
+head(Islands.UCSC)
+
+manifest_450 <-as.data.frame(cbind(Locations$chr, Locations$pos, Other$UCSC_RefGene_Name,
+                                   Other$Regulatory_Feature_Name, Islands.UCSC$Islands_Name,
+                                   Islands.UCSC$Relation_to_Island))
+names(manifest_450) <- c('Chr', 'Position','UCSC_RefGene_Name', 'Regulatory_Feature_Name',
+                         'Islands_Name', 'Relation_to_Island')
+rownames(manifest_450) <- rownames(Locations)
+manifest_450_res <- manifest_450[match(rownames(res), rownames(manifest_450)),]
+res_manifest <- cbind(res, manifest_450_res)
+res <- res_manifest
+```
+
+
+##Visualising the results
+
+```{r QQplots}
+library(qqman)
+pdf('QQplot of age.pdf')
+qq(res$Age_Beta)
+dev.off()
+```
+
+
+```{r manhatten plots}
+res<-res[which(res$Chr != "Y"),] 
+res$Chr<-as.character(res$Chr)
+res$Chr[which(res$Chr == "X")]<-23 
+res$Chr <- gsub('.*chr', '', res$Chr)
+res$Chr <- as.numeric(res$Chr)
+res<-res[which(res$Chr != ""),]
+res$Position <- as.numeric(res$Position)
+
+
+bonfP<-0.05/nrow(res)
+pdf('manhattan for age differences.pdf')
+manhattan(res, p = "Age_P", bp = "Position", chr = "Chr", genomewide = -log10(bonfP), suggestiveline = -log10(5e-5), logp=T, col=c("blue","yellow"), ylim=c(0,8))
+dev.off()
+```
