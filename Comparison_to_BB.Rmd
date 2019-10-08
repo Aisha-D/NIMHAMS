@@ -1,0 +1,153 @@
+---
+title: "Comparison_to_BB"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+## Load the data
+Only load the frontal data, the age will be compared first
+
+```{r loading data, warning= FALSE, message=FALSE}
+library(dplyr)
+library(qqman)
+library(gplots)
+library(pheatmap)
+
+res <- read.csv("res_c_chip_included_manifest.csv", header = T, row.names = 1)
+bb <- read.csv("/mnt/data1/BrainData/Results/Age_Sex/PFC/LM_MLM_Age_Sex_CovariedChipNeuronalProportion_MLMethod.csv", header= T, row.names = 1)
+
+epicManifest<-read.csv("/mnt/data1/IndiaWorkshop/epicManifest.csv", stringsAsFactors = F, header=T)
+```
+
+## Pull out the significant probes
+
+``` {r sig probes}
+res<- res[order(res$Age_P),]
+bb <- bb[order(bb$Age.P),]
+
+res_age <- res[which(res$Age_P <= 0.05),]
+bb_age <- bb[which(bb$Age.P <= 0.05),]
+
+```
+
+## How many probes match
+
+``` {r sig probes}
+#find the probes in both dataset
+bb_res_match <- rownames(res_age)[match(rownames(bb_age), rownames(res_age))]
+bb_res_match <- as.data.frame(bb_res_match)
+bb_res_match <-bb_res_match[which(bb_res_match$bb_res_match != "NA"),]
+bb_res_match <- as.data.frame(bb_res_match)
+
+#extrapolate the beta, sd and p values for these probes from both datasets
+res_m <- res_age[which(bb_res_match$bb_res_match %in% rownames(res_age)),c(1,2,3)]
+bb_m <- bb_age[which(bb_res_match$bb_res_match %in% rownames(bb_age)),c(1,2,3)]
+
+bb_res_age <- cbind(res_m, bb_m)
+rm(bb,bb_age,bb_m,bb_res_match, res, res_age, res_m)
+res <- bb_res_age
+```
+
+## Add manifest data
+
+```{r manifest}
+epicManifest<-epicManifest[match(rownames(res), epicManifest$Name),]
+res<-cbind(res, epicManifest[,c("CHR", "MAPINFO", "UCSC_RefGene_Name", "UCSC_RefGene_Group", "Relation_to_UCSC_CpG_Island", "Regulatory_Feature_Name", "Regulatory_Feature_Group", "DNase_Hypersensitivity_NAME", "OpenChromatin_NAME", "TFBS_Evidence_Count", "Methyl450_Loci", "SNP_ID", "SNP_DISTANCE", "SNP_MinorAlleleFrequency")])
+```
+
+
+## Compare the probes between UK and BB via
+```{r load India data}
+load("/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAM_FPC_Normalised_snpsremoved.rdat") 
+pheno_india <- pheno 
+betas_india <- betas
+
+rm(pheno, betas)
+
+```
+
+
+
+
+```{r load UK data}
+load("/mnt/data1/BrainData/NormalisedData.Rdata")
+pheno_uk <-  full.pheno
+betas_uk <- betas.dasen
+colnames(betas_uk) == pheno_uk$Sentrix_Full
+
+rownames(pheno_uk) <- pheno_uk$Sentrix_Full #set rownames as sentrix ids
+#now we need to filter for frontal brain regions
+pheno_uk <- filter(pheno_uk, pheno_uk$BrainRegion == "FC")
+betas_uk <- betas_uk[,which(rownames(pheno_uk) %in% colnames(betas_uk))]
+
+colnames(betas_uk) == rownames(pheno_uk)
+
+rm(full.pheno, betas.dasen)
+
+```
+
+
+## Create metadata about samples
+```{r metadata}
+cell_rows <- as.data.frame(pheno_india$Sex, rownames(pheno_india))
+colnames(cell_rows)<- "Sex"
+cells_rows2 <- as.data.frame(pheno_uk$Sex, rownames(pheno_uk))
+colnames(cells_rows2)<- "Sex"
+cell_row <- rbind(cell_rows, cells_rows2)
+cell_age <- as.data.frame(pheno_india$Age, rownames(pheno_india))
+colnames(cell_age)<- "Age"
+cell_age$Age <- as.numeric(as.character(cell_age$Age))
+cells_age2 <- as.data.frame(pheno_uk$Age, rownames(pheno_uk))
+colnames(cells_age2)<- "Age"
+cells_age2$Age <- as.numeric(as.character(cells_age2$Age))
+cell_ages <- rbind(cell_age, cells_age2)
+ind <- as.data.frame(rep('India',nrow(pheno_india)), rownames(pheno_india))
+colnames(ind) <- 'Source'
+eng <- as.data.frame(rep('UK',nrow(pheno_uk)), rownames(pheno_uk))
+colnames(eng) <- 'Source'
+loc <- rbind(ind,eng)
+
+cells <- cbind(cell_row, cell_ages, loc)
+```
+
+
+
+```{r comparison}
+#filter the probes that are significant in both datasets from raw matrices
+betas_u <- betas_uk[which(rownames(res) %in% rownames(betas_uk)),]
+betas_i <- betas_india[which(rownames(res) %in% rownames(betas_india)),]
+
+#combine the two so that a single matrix with all samples is created
+betas_ui <- merge(betas_u, betas_i, by = "row.names")
+rownames(betas_ui) <- betas_ui$Row.names
+betas_ui <- betas_ui[,-1]#remove rownames column
+ 
+identical(colnames(betas_ui), rownames(cells))
+betas_ui <- betas_ui[,order(colnames(betas_ui))]
+cells <- cells[order(rownames(cells)),]
+
+tmp = subset(cells, !(colnames(betas_ui) %in% rownames(cells)))
+
+betas_uk <- betas_uk[,order(colnames(betas_uk))]
+pheno_uk <- pheno_uk[order(pheno_uk$Sentrix_Full),]
+identical(colnames(betas_uk), pheno_uk$Sentrix_Full)
+colnames(betas_uk) == pheno_uk$Sentrix_Full
+
+
+pdf('test.pdf')
+pheatmap(betas_ui[1:10,], scale = 'row',
+         annotation_col = cells,
+         cluster_rows = F,
+         show_rownames = F,
+         show_colnames = F,
+         main="Top significant age probes between UK and Indian samples")
+dev.off()
+```
+
+
+

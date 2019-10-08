@@ -11,9 +11,6 @@ knitr::opts_chunk$set(echo = TRUE)
 This script will first analyse the frontal cortex and then the cerebellum. We will look at what probes differ between individuals.
 
 
-
-
-
 ## Load the data
 The normalised data for Frontal and Cerebellum will be loaded in seperately.
 
@@ -24,7 +21,7 @@ library(gplots)
 
 
 setwd("/mnt/data1/NIMHANS/Down_stream_analysis/") ## change to working directory path
-epicManifest<-read.csv("450_Manifest.csv", stringsAsFactors = F, header=T)
+epicManifest<-read.csv("/mnt/data1/IndiaWorkshop/epicManifest.csv", stringsAsFactors = F, header=T)
 load("NIMHAM_CER_Normalised_snpsremoved.rdat") ## Load in the cerebellum.
 #as the frontal and cerebellum will have the same name dataset anmes, renaming the pheno and beta will help differeniate the two
 pheno_c <- pheno
@@ -51,29 +48,29 @@ We have several co-variants to consider. In this experiment, we will consider th
 betas <- betas_c
 pheno <- pheno_c
 # #create an empty matrix of the probes with 3 columns.
-# res<-matrix(data = NA, nrow = nrow(betas), ncol = 6)
-# colnames(res)<-c("Age_Beta", "Age_SE", "Age_P", "Sex_Beta", "Sex_SE", "Sex_P")
-# rownames(res)<-rownames(betas)
-# pheno$Age <- as.integer(pheno$Age)
-# 
-# for(i in 1:nrow(betas)){
-#     model<-lm(betas[i,] ~ pheno$Age + factor(pheno$Sex)+ factor(pheno$Chip)) 
-#     res[i,1]<-coefficients(model)["pheno$Age"]
-#     res[i,2]<-summary(model)$coefficients["pheno$Age",2]
-#     res[i,3]<-summary(model)$coefficients["pheno$Age",4]
-#     res[i,4]<-coefficients(model)["factor(pheno$Sex)M"]
-#     res[i,5]<-summary(model)$coefficients["factor(pheno$Sex)M",2]
-#     res[i,6]<-summary(model)$coefficients["factor(pheno$Sex)M",4]
-# }
-# head(res)
-# 
-# #need to make the beta and SE as percentage
-# res[,"Sex_Beta"] <- res[,"Sex_Beta"]*100
-# res[,"Sex_SE"] <- res[,"Sex_SE"]*100
-# res[,"Age_Beta"] <- res[,"Age_Beta"]*100
-# res[,"Age_SE"] <- res[,"Age_SE"]*100
-# # head(res) #535566 rows, 6 columns
-# write.csv(res, 'res_c_chip.csv')
+res<-matrix(data = NA, nrow = nrow(betas), ncol = 6)
+colnames(res)<-c("Age_Beta", "Age_SE", "Age_P", "Sex_Beta", "Sex_SE", "Sex_P")
+rownames(res)<-rownames(betas)
+pheno$Age <- as.numeric(as.character(pheno$Age))
+
+for(i in 1:nrow(betas)){
+    model<-lm(betas[i,] ~ pheno$Age + factor(pheno$Sex)+ factor(pheno$Chip))
+    res[i,1]<-coefficients(model)["pheno$Age"]
+    res[i,2]<-summary(model)$coefficients["pheno$Age",2]
+    res[i,3]<-summary(model)$coefficients["pheno$Age",4]
+    res[i,4]<-coefficients(model)["factor(pheno$Sex)M"]
+    res[i,5]<-summary(model)$coefficients["factor(pheno$Sex)M",2]
+    res[i,6]<-summary(model)$coefficients["factor(pheno$Sex)M",4]
+}
+head(res)
+
+#need to make the beta and SE as percentage
+res[,"Sex_Beta"] <- res[,"Sex_Beta"]*100
+res[,"Sex_SE"] <- res[,"Sex_SE"]*100
+res[,"Age_Beta"] <- res[,"Age_Beta"]*100
+res[,"Age_SE"] <- res[,"Age_SE"]*100
+# head(res) #535566 rows, 6 columns
+write.csv(res, 'res_c_chip.csv')
 ```
 
 Once the res table is generated. Save as it taken times to usually run it
@@ -185,8 +182,6 @@ dev.off()
 res<-res[order(res$Age_P),]
 res_sig <- res[1:500,]
 betas_r <- betas[rownames(res_sig),]
-sigma<-apply(betas, 1, sd)
-
 
 cell_rows <- as.data.frame(pheno$Sex, rownames(pheno))
 colnames(cell_rows)<- "Sex"

@@ -20,15 +20,13 @@ library(qqman)
 library(gplots)
 library(pheatmap)
 
+#Setting up parallel processors
+library(doParallel)
+cl<-makeCluster(20)
+registerDoParallel(cl)
 
-# setwd("/mnt/data1/NIMHANS/Down_stream_analysis/") ## change to working directory path
-# epicManifest<-read.csv("450_Manifest.csv", stringsAsFactors = F, header=T)
-load("/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAM_FPC_Normalised_snpsremoved.rdat") ## Load in the cerebellum.
-#as the frontal and cerebellum will have the same name dataset anmes, renaming the pheno and beta will help differeniate the two
-pheno_f <- pheno
-betas_f <- betas
-
-rm(pheno,betas) #remove the non-labelled betas and pheno files as it maybe confusing later on
+epicManifest<-read.csv("/mnt/data1/IndiaWorkshop/epicManifest.csv", stringsAsFactors = F, header=T)
+load("/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAM_FPC_Normalised_snpsremoved.rdat") 
 
 ## these commands create a folder to save the EWAS output
 if(!dir.exists("EWAS")){
@@ -45,52 +43,62 @@ if(!dir.exists("EWAS/Plots")){
 We have several co-variants to consider. In this experiment, we will consider the chip location, age and sex as we have already seperated the brain regions.
 
 ```{r linear model for frontal, message=FALSE, warning = FALSE}
-#set betas here to what beta region you want
-betas <- betas_f
-pheno <- pheno_f
-# #creat an empty matrix of the probes with 3 columns.
-# res<-matrix(data = NA, nrow = nrow(betas), ncol = 6)
-# colnames(res)<-c("Age_Beta", "Age_SE", "Age_P", "Sex_Beta", "Sex_SE", "Sex_P")
-# rownames(res)<-rownames(betas)
-# pheno$Age <- as.integer(pheno$Age)
-# pheno$Chip<- as.character(pheno$Chip)
-# #for(i in 1:nrow(betas)){ #(this is what you would type to perform regression on all probes)
-# for(i in 1:nrow(betas)){
-#     model<-lm(betas[i,] ~ pheno$Age + factor(pheno$Sex)+pheno$Chip)
-#     res[i,1]<-coefficients(model)["pheno$Age" ]
-#     res[i,2]<-summary(model)$coefficients["pheno$Age",2]
-#     res[i,3]<-summary(model)$coefficients["pheno$Age",4]
-#     res[i,4]<-coefficients(model)["factor(pheno$Sex)M" ]
-#     res[i,5]<-summary(model)$coefficients["factor(pheno$Sex)M",2]
-#     res[i,6]<-summary(model)$coefficients["factor(pheno$Sex)M",4]
-#     }
-# head(res)
+
+#create an empty matrix of the probes with 3 columns.
+pheno$Age <- as.numeric(as.character(pheno$Age))
+pheno$Chip<- as.character(pheno$Chip)
+
+# #Create function which performs analysis for a probes
+# testprobe<-function(row, pheno){
+# 	model<-lm(row ~ pheno$Age + factor(pheno$Sex) + factor(pheno$Chip))
+# 	return(summary(model)$coefficients["pheno$Age",c(1,2,4)],
+# 	       summary(model)$coefficients["factor(pheno$Sex)M",c(1,2,4)])
+# }
 # 
-# #need to make the beta and SE as percentage
-# res[,"Sex_Beta"] <- res[,"Sex_Beta"]*100
-# res[,"Sex_SE"] <- res[,"Sex_SE"]*100
-# res[,"Age_Beta"] <- res[,"Age_Beta"]*100
-# res[,"Age_SE"] <- res[,"Age_SE"]*100
-# # head(res) #535566 rows, 6 columns
-# write.csv(res, 'res_f_chip.csv')
+# ###Run EWAS using foreach() and %dopar% to tell R to run the analysis is parallel
+# res<-foreach(i=1:nrow(betas), .combine=rbind) %dopar% 
+#   {
+# 		testprobe(betas[i,], pheno)
+# 	}
+res<-matrix(data = NA, nrow = nrow(betas), ncol = 6)
+colnames(res)<-c("Age_Beta", "Age_SE", "Age_P", "Sex_Beta", "Sex_SE", "Sex_P")
+rownames(res)<-rownames(betas)
+for(i in 1:nrow(betas)){
+    model<-lm(betas[i,] ~ pheno$Age + factor(pheno$Sex)+factor(pheno$Chip))
+    res[i,1]<-coefficients(model)["pheno$Age" ]
+    res[i,2]<-summary(model)$coefficients["pheno$Age",2]
+    res[i,3]<-summary(model)$coefficients["pheno$Age",4]
+    res[i,4]<-coefficients(model)["factor(pheno$Sex)M" ]
+    res[i,5]<-summary(model)$coefficients["factor(pheno$Sex)M",2]
+    res[i,6]<-summary(model)$coefficients["factor(pheno$Sex)M",4]
+    }
+head(res)
+
+#need to make the beta and SE as percentage
+res[,"Sex_Beta"] <- res[,"Sex_Beta"]*100
+res[,"Sex_SE"] <- res[,"Sex_SE"]*100
+res[,"Age_Beta"] <- res[,"Age_Beta"]*100
+res[,"Age_SE"] <- res[,"Age_SE"]*100
+# head(res) #535566 rows, 6 columns
+write.csv(res, 'res_f_chip.csv')
 ```
 
 Once the res table is generated. Save as it taken times to usually run it
 
 ```{r annotations, message=FALSE, warning = FALSE}
 # read the res file
-# res <- read.csv('res_f_chip.csv', header = T, row.names = 1)
-# epicManifest<-epicManifest[match(rownames(res), epicManifest$Name),]
-# res<-cbind(res, epicManifest[,c("CHR", "MAPINFO", "UCSC_RefGene_Name", "UCSC_RefGene_Group", "Relation_to_UCSC_CpG_Island", "Regulatory_Feature_Name", "Regulatory_Feature_Group", "DNase_Hypersensitivity_NAME", "OpenChromatin_NAME", "TFBS_Evidence_Count", "Methyl450_Loci", "SNP_ID", "SNP_DISTANCE", "SNP_MinorAlleleFrequency")])
-# 
-# write.csv(res, "res_f__chip_included_manifest.csv") 
+res <- read.csv('res_f_chip.csv', header = T, row.names = 1)
+epicManifest<-epicManifest[match(rownames(res), epicManifest$Name),]
+res<-cbind(res, epicManifest[,c("CHR", "MAPINFO", "UCSC_RefGene_Name", "UCSC_RefGene_Group", "Relation_to_UCSC_CpG_Island", "Regulatory_Feature_Name", "Regulatory_Feature_Group", "DNase_Hypersensitivity_NAME", "OpenChromatin_NAME", "TFBS_Evidence_Count", "Methyl450_Loci", "SNP_ID", "SNP_DISTANCE", "SNP_MinorAlleleFrequency")])
+
+write.csv(res, "res_f__chip_included_manifest.csv")
 ```
 
 
 ##Visualising the results
 
 ```{r QQplots, message=FALSE}
-res <- read.csv("res_f__chip_included_manifest.csv", stringsAsFactors = F, header=T, row.names = 1)
+# res <- read.csv("res_f__chip_included_manifest.csv", stringsAsFactors = F, header=T, row.names = 1)
 par(mfrow = c(2,2))
 #pdf('QQplot of sex.pdf')
 qq(res$Sex_Beta)
