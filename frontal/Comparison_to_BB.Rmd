@@ -1,0 +1,249 @@
+---
+title: "Comparison_to_BB"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Part 1: Age
+
+## Load the data
+The age data will be compared first.
+
+```{r loading data, warning= FALSE, message=FALSE}
+library(dplyr)
+library(qqman)
+library(gplots)
+library(pheatmap)
+library(ggfortify)
+
+res <- read.csv("res_f__chip_included_manifest.csv", header = T, row.names = 1)
+bb <- read.csv("/mnt/data1/BrainData/Results/Age_Sex/PFC/LM_MLM_Age_Sex_CovariedChipNeuronalProportion_MLMethod.csv", header= T, row.names = 1)
+
+epicManifest<-read.csv("/mnt/data1/IndiaWorkshop/epicManifest.csv", stringsAsFactors = F, header=T)
+```
+
+## Pull out the significant probes
+
+``` {r sig probes}
+res_age <- res[which(res$Age_P <= 0.05),]
+bb_age <- bb[which(bb$Age.P <= 0.05),]
+
+res_sex <- res[which(res$Sex_P <= 0.05),]
+bb_sex <- bb[which(bb$Sex.P <= 0.05),]
+```
+
+## How many probes match
+
+``` {r combining ages}
+#find the probes in both dataset
+bb_res_match <- rownames(res_age)[match(rownames(bb_age), rownames(res_age))]
+bb_res_match <- as.data.frame(bb_res_match)
+bb_res_match <-bb_res_match[which(bb_res_match$bb_res_match != "NA"),]
+bb_res_match <- as.data.frame(bb_res_match)
+
+#extrapolate the beta, sd and p values for these probes from both datasets
+res_m <- res_age[which(bb_res_match$bb_res_match %in% rownames(res_age)),c(1,2,3,4,5,6)]
+bb_m <- bb_age[which(bb_res_match$bb_res_match %in% rownames(bb_age)),c(1,2,3,5,6,7)]
+
+bb_res_age <- merge(res_m, bb_m, by  = "row.names")
+rownames(bb_res_age) <- bb_res_age[,1]
+bb_res_age <- bb_res_age[,-1]
+
+rm(bb_age,bb_m,bb_res_match, res, res_age, res_m)
+res <- bb_res_age
+```
+
+## Add manifest data
+
+```{r manifest}
+epicManifest<-epicManifest[match(rownames(res), epicManifest$Name),]
+res<-cbind(res, epicManifest[,c("CHR", "MAPINFO", "UCSC_RefGene_Name", "UCSC_RefGene_Group", "Relation_to_UCSC_CpG_Island", "Regulatory_Feature_Name", "Regulatory_Feature_Group", "DNase_Hypersensitivity_NAME", "OpenChromatin_NAME", "TFBS_Evidence_Count", "Methyl450_Loci", "SNP_ID", "SNP_DISTANCE", "SNP_MinorAlleleFrequency")])
+```
+
+
+## Compare the probes between UK and BB via
+```{r load India data}
+load("/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAM_FPC_Normalised_snpsremoved.rdat") 
+pheno_india <- pheno 
+betas_india <- betas
+
+rm(pheno, betas)
+
+```
+
+```{r load UK data}
+load("/mnt/data1/BrainData/NormalisedData.Rdata")
+pheno_uk <-  full.pheno
+betas_uk <- betas.dasen
+
+rownames(pheno_uk) <- pheno_uk$Sentrix_Full #set rownames as sentrix ids
+
+#now we need to filter for frontal brain regions
+pheno_uk <- filter(pheno_uk, pheno_uk$BrainRegion == "FC")
+rownames(pheno_uk) <- pheno_uk$Sentrix_Full #set rownames as sentrix ids
+betas_uk <- as.data.frame(betas_uk)
+betas_uk <- select(betas_uk, one_of(rownames(pheno_uk)))
+ 
+head(colnames(betas_uk) == pheno_uk$Sentrix_Full) #quickj check to see that the correct samples have been pulled from the uk data
+
+rm(full.pheno, betas.dasen)
+
+```
+
+
+## Create metadata 
+This metadata is to help us visualise the sample information when plotting the heatmap
+```{r metadata}
+cell_rows <- as.data.frame(pheno_india$Sex, rownames(pheno_india))
+colnames(cell_rows)<- "Sex"
+cells_rows2 <- as.data.frame(pheno_uk$Sex, rownames(pheno_uk))
+colnames(cells_rows2)<- "Sex"
+cell_row <- rbind(cell_rows, cells_rows2)
+cell_age <- as.data.frame(pheno_india$Age, rownames(pheno_india))
+colnames(cell_age)<- "Age"
+cell_age$Age <- as.numeric(as.character(cell_age$Age))
+cells_age2 <- as.data.frame(pheno_uk$Age, rownames(pheno_uk))
+colnames(cells_age2)<- "Age"
+cells_age2$Age <- as.numeric(as.character(cells_age2$Age))
+cell_ages <- rbind(cell_age, cells_age2)
+ind <- as.data.frame(rep('India',nrow(pheno_india)), rownames(pheno_india))
+colnames(ind) <- 'Source'
+eng <- as.data.frame(rep('UK',nrow(pheno_uk)), rownames(pheno_uk))
+colnames(eng) <- 'Source'
+loc <- rbind(ind,eng)
+
+cells <- cbind(cell_row, cell_ages, loc)
+```
+
+
+```{r comparison of age}
+#filter the probes that are significant in both datasets from raw matrices
+betas_u <- betas_uk[which(rownames(betas_uk) %in% rownames(res)),]
+betas_i <- betas_india[which(rownames(betas_india) %in% rownames(res)),]
+
+#combine the two so that a single matrix with all samples is created
+betas_ui <- merge(betas_u, betas_i, by = "row.names")
+rownames(betas_ui) <- betas_ui$Row.names
+betas_ui <- betas_ui[,-1]#remove rownames column
+ 
+pheatmap(betas_ui, scale = 'row',
+         annotation_col = cells,
+         cluster_rows = F,
+         show_rownames = F,
+         show_colnames = F,
+         main="Top significant age probes between UK and Indian samples (frontal)")
+
+```
+
+
+#Part 2: Sex
+
+Since the data was already loaded frontal, we can pull out the sex information from the frontal beta values and UK population
+
+```{r comparison of sex}
+#take out the significant probes from beta matrix
+bb_res_match <- rownames(res_sex)[match(rownames(bb_sex), rownames(res_sex))]
+bb_res_match <- as.data.frame(bb_res_match)
+bb_res_match <-bb_res_match[which(bb_res_match$bb_res_match != "NA"),]
+bb_res_match <- as.data.frame(bb_res_match)
+
+#extrapolate the beta, sd and p values for these probes from both datasets
+res_m <- res_sex[which(bb_res_match$bb_res_match %in% rownames(res_sex)),c(4,5,6)]
+bb_m <- bb_sex[which(bb_res_match$bb_res_match %in% rownames(bb_sex)),c(5,6,7)]
+
+#merge the two datasets together and remove tables no longer required
+bb_res_sex <- merge(res_m, bb_m, by  = "row.names")
+rownames(bb_res_sex) <- bb_res_sex[,1]
+bb_res_sex <- bb_res_sex[,-1]
+rm(bb_sex,bb_m,bb_res_match, res, res_sex, res_m)
+res2 <- bb_res_sex
+
+#filter the probes that are significant in both datasets from raw matrices
+betas_u2 <- betas_uk[which(rownames(betas_uk) %in% rownames(res2)),]
+betas_i2 <- betas_india[which(rownames(betas_india) %in% rownames(res2)),]
+
+#combine the two so that a single matrix with all samples is created
+betas_ui2 <- merge(betas_u2, betas_i2, by = "row.names")
+rownames(betas_ui2) <- betas_ui2$Row.names
+betas_ui2 <- betas_ui2[,-1]#remove rownames column
+ 
+identical(rownames(betas_ui2), rownames(cells))
+
+
+pheatmap(betas_ui2, scale = 'row',
+         annotation_col = cells,
+         cluster_rows = F,
+         show_rownames = F,
+         show_colnames = F,
+         main="Top significant sex probes between UK and Indian samples (frontal)")
+
+```
+
+#pca
+To help us visualise how samples are related to each and whether there are any samples no grouped well.
+
+```{r pca of age and sex}
+
+betas_ui <- betas_ui[,order(colnames(betas_ui))]
+cells <- cells[order(rownames(cells)),]
+colnames(betas_ui) ==  rownames(cells)
+beta_uit <- t(betas_ui)
+pca_age <- prcomp(beta_uit, scale = T, center = T)
+
+betas_ui2 <- betas_ui2[,order(colnames(betas_ui2))]
+cells <- cells[order(rownames(cells)),]
+colnames(betas_ui2) ==  rownames(cells)
+beta_ui2t <- t(betas_ui2)
+pca_sex <- prcomp(beta_ui2t, scale = T, center = T)
+
+
+par(mfrow = c(2,2))
+autoplot(pca_age, data = cells, colour = 'Source', 
+         title= "Age pca for UK & India samples")
+autoplot(pca_age, data = cells, colour = 'Age', 
+         title= "Age pca for UK & India samples")
+autoplot(pca_age, data = cells, colour = 'Sex', 
+         title= "Age pca for UK & India samples")
+screeplot(pca_age, npcs = 20, type =  "lines")
+
+
+
+
+par(mfrow = c(2,2))
+autoplot(pca_sex, data = cells, colour = 'Source', 
+         title= "Sex pca for UK & India samples")
+autoplot(pca_sex, data = cells, colour = 'Age', 
+         title= "Sex pca for UK & India samples")
+autoplot(pca_sex, data = cells, colour = 'Sex', 
+         title= "Sex pca for UK & India samples")
+screeplot(pca_sex, npcs = 20, type =  "lines")
+
+```
+
+#correlation of significant probe's methylation
+To see that the significant probes have the same direction in India and UK datasets.
+```{r pearsons}
+library(ggpubr)
+
+ggscatter(bb_res_age, x = 'Age_Beta', y = 'Age.Coeff',
+          add = 'reg.line',
+          add.params = list(color = 'blue', fill = 'lightgray'),
+          conf.int = T) +
+  stat_cor(method = 'pearson') +
+  labs(title = "Correlation between UK and Indian significant sites on age (frontal)",
+       x = 'India', y = 'UK')
+
+ggscatter(bb_res_sex, x = 'Sex_Beta', y = 'Sex.Coeff',
+          add = 'reg.line',
+          add.params = list(color = 'blue', fill = 'lightgray'),
+          conf.int = T) +
+  stat_cor(method = 'pearson') +
+  labs(title = "Correlation between UK and Indian significant sites on sex (frontal)",
+       x = 'India', y = 'UK')
+
+```
+
+
