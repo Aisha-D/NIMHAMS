@@ -110,8 +110,8 @@ bonfP<-0.05/nrow(res)
 
 
 
-manhattan(res, p = "Age_P", bp = "MAPINFO", chr = "CHR", genomewide = -log10(bonfP), suggestiveline = -log10(5e-5), logp=T, col=c("blue","yellow"), ylim=c(0,8))
-manhattan(res, p = "Sex_P", bp = "MAPINFO", chr = "CHR", genomewide = -log10(bonfP), suggestiveline = -log10(5e-5), logp=T, col=c("blue","yellow"), ylim=c(0,8))
+# manhattan(res, p = "Age_P", bp = "MAPINFO", chr = "CHR", genomewide = -log10(bonfP), suggestiveline = -log10(5e-5), logp=T, col=c("blue","yellow"), ylim=c(0,8))
+# manhattan(res, p = "Sex_P", bp = "MAPINFO", chr = "CHR", genomewide = -log10(bonfP), suggestiveline = -log10(5e-5), logp=T, col=c("blue","yellow"), ylim=c(0,8))
 
 ```
 
@@ -125,23 +125,22 @@ The top significant probes can be visualised as well.
 ```{r scatter plot , warning= F, message=FALSE}
 #Order based on most to least significant probes
 res<-res[order(res$Age_P),]
-par(mfrow = c(2,3)) ## will plot 6 figures per page in 2 rows by 3 columns
+pdf('sig_probes_cereb.pdf')
+res<-res[order(res$Age_P),]
+par(mfrow = c(2,3))
 for(i in 1:6){
   plot(pheno$Age, betas[rownames(res)[i],]*100 , xlab = "Age", ylab = "DNA methylation (%)", pch = 16, main = rownames(res)[i]) ## we multiple by 100 to plot of a % scale rather than proportion
   ## to add line of best fit
-  model<-lm(betas[rownames(res)[i],]*100 ~ pheno$Age)
-  abline(model, col = "red")  
 }
+
 
 #Order based on most to least significant probes
 res<-res[order(res$Sex_P),]
 par(mfrow = c(2,3)) ## will plot 6 figures per page in 2 rows by 3 columns
 for(i in 1:6){
   plot(pheno$Sex, betas[rownames(res)[i],]*100 , xlab = "Sex", ylab = "DNA methylation (%)", pch = 16, main = rownames(res)[i]) 
-  model<-lm(betas[rownames(res)[i],]*100 ~ pheno$Sex)
-  abline(model, col = "red")  
 }
-
+dev.off()
 ```
 
 ###Heatmaps
@@ -165,23 +164,23 @@ cell_chip <- as.data.frame(pheno$Chip, rownames(pheno))
 colnames(cell_chip)<- "Chip"
 cell_rows <- cbind(cell_rows, cell_age, cell_chip)
 
-pdf('/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAMSa/cereb/pheatmaps_var_sex.pdf', 
-    onefile = T)
-pheatmap(betas_r, scale = 'row', 
-         annotation_col = cell_rows,
-         cluster_rows = F,
-         show_rownames = F,
-         show_colnames = F,
-         main="Top significant probes between sexes")
-
-
-pheatmap(betas[order(sigma, decreasing = TRUE)[1:500],], scale = 'row', 
-         annotation_col = cell_rows,
-         cluster_rows = F,
-         show_rownames = F,
-         show_colnames = F,
-         main="Top varying probes")
-dev.off()
+# pdf('/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAMSa/cereb/pheatmaps_var_sex.pdf', 
+#     onefile = T)
+# pheatmap(betas_r, scale = 'row', 
+#          annotation_col = cell_rows,
+#          cluster_rows = F,
+#          show_rownames = F,
+#          show_colnames = F,
+#          main="Top significant probes between sexes")
+# 
+# 
+# pheatmap(betas[order(sigma, decreasing = TRUE)[1:500],], scale = 'row', 
+#          annotation_col = cell_rows,
+#          cluster_rows = F,
+#          show_rownames = F,
+#          show_colnames = F,
+#          main="Top varying probes")
+# dev.off()
 
 ``` 
 
@@ -201,14 +200,14 @@ cell_chip <- as.data.frame(pheno$Chip, rownames(pheno))
 colnames(cell_chip)<- "Chip"
 cell_rows <- cbind(cell_rows, cell_age, cell_chip)
 
-pdf('/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAMSa/cereb/pheatmaps_age.pdf')
-pheatmap(betas_r, scale = 'row', 
-         annotation_col = cell_rows,
-         cluster_rows = F,
-         show_rownames = F,
-         show_colnames = F,
-         main="Top significant probes between Ages")
-dev.off()
+# pdf('/mnt/data1/NIMHANS/Down_stream_analysis/NIMHAMSa/cereb/pheatmaps_age.pdf')
+# pheatmap(betas_r, scale = 'row', 
+#          annotation_col = cell_rows,
+#          cluster_rows = F,
+#          show_rownames = F,
+#          show_colnames = F,
+#          main="Top significant probes between Ages")
+# dev.off()
 
 ```
 
@@ -281,14 +280,14 @@ bb_res_match <- as.data.frame(bb_res_match)
 #bb_res_match) from both datasets
 res_m <- res[which(bb_res_match$bb_res_match %in% rownames(res)),c(1,2,3,4,5,6)]
 bb_m <- bb[which(bb_res_match$bb_res_match %in% rownames(bb)),
-               c('Age.Coeff', 'Age.SE', 'Age.P', 'Sex.Coeff.M', 'Sex.SE', 'Sex.P')]
+               c('Age.Coeff', 'Age.SE', 'Age.P', 'Sex.Coeff.1', 'Sex.SE.1', 'Sex.P.1')]
 
 #merge the two lm data as they should have the same probes
 bb_res_comb <- merge(res_m, bb_m, by  = "row.names")
 rownames(bb_res_comb) <- bb_res_comb[,1]
 bb_res_comb <- bb_res_comb[,-1]
 
-rm(bb_age,bb_m,bb_res_match, res, res_age, res_m)
+#rm(bb_age,bb_m,bb_res_match, res, res_age, res_m)
 ```
 
 ## Add manifest data
@@ -351,15 +350,15 @@ cells <- cbind(cell_row, cell_ages, loc)
   
 The UK and Indian samples can be checked to group together by PCA.
 ``` {r pca}
-betas_pcat <- t(betas_pca)
-pca_all <- prcomp(betas_pcat, scale = T, center = T)
-
-cells <- cells[order(rownames(cells)),]
-betas_pcat <- betas_pcat[order(rownames(betas_pcat)),]
-
-head(rownames(betas_pcat) ==  rownames(cells))
-autoplot(pca_all, data = cells, colour = 'Source', 
-         title= "Age pca for UK & India samples")
+# betas_pcat <- t(betas_pca)
+# pca_all <- prcomp(betas_pcat, scale = T, center = T)
+# 
+# cells <- cells[order(rownames(cells)),]
+# betas_pcat <- betas_pcat[order(rownames(betas_pcat)),]
+# 
+# head(rownames(betas_pcat) ==  rownames(cells))
+# autoplot(pca_all, data = cells, colour = 'Source', 
+#          title= "Age pca for UK & India samples")
 ```
 
 
@@ -379,12 +378,12 @@ betas_ui <- merge(betas_u, betas_i, by = "row.names")
 rownames(betas_ui) <- betas_ui$Row.names
 betas_ui <- betas_ui[,-1]#remove rownames column
  
-pheatmap(betas_ui, 
-         annotation_col = cells,
-         cluster_rows = F,
-         show_rownames = F,
-         show_colnames = F,
-         main="Top significant age probes between UK and Indian samples (frontal)")
+# pheatmap(betas_ui, 
+#          annotation_col = cells,
+#          cluster_rows = F,
+#          show_rownames = F,
+#          show_colnames = F,
+#          main="Top significant age probes between UK and Indian samples (frontal)")
 
 ```
 
@@ -398,7 +397,7 @@ Since the data was already loaded frontal, we can pull out the sex information f
 #filter the probes that are significant in both datasets from raw matrices
 bb_res_sex <- bb_res_comb[which(bb_res_comb$Sex_P <= 0.05),] #filter for Indian age specific significant probes
 
-bb_res_sex<- bb_res_age[order(bb_res_sex$Sex_P),]
+bb_res_sex<- bb_res_sex[order(bb_res_sex$Sex_P),]
 betas_u2 <- betas_uk[which(rownames(betas_uk) %in% rownames(bb_res_sex)),]
 betas_i2 <- betas_india[which(rownames(betas_india) %in% rownames(bb_res_sex)),]
 
@@ -414,12 +413,12 @@ cells <- cells[order(rownames(cells)),]
 identical(colnames(betas_ui2), rownames(cells))
 
 
-pheatmap(betas_ui2, scale = 'row',
-         annotation_col = cells,
-         cluster_rows = F,
-         show_rownames = F,
-         show_colnames = F,
-         main="Top significant sex probes between UK and Indian samples (frontal)")
+# pheatmap(betas_ui2, scale = 'row',
+#          annotation_col = cells,
+#          cluster_rows = F,
+#          show_rownames = F,
+#          show_colnames = F,
+#          main="Top significant sex probes between UK and Indian samples (frontal)")
 
 ```
 
@@ -432,22 +431,33 @@ Pearsons correlation will be used to measure how similiar the methyaltion of the
 
 ```{r pearsons}
 library(ggpubr)
+bb_res_age2 <- bb_res_age
+bb_res_age2$Age.Coeff <- bb_res_age$Age.Coeff*100
+#bb_res_age2 <- bb_res_age2[which(bb_res_age2$Age.Coeff <= bonfP),] 
 
-ggscatter(bb_res_age, x = 'Age_Beta', y = 'Age.Coeff',
+bb_res_sex2 <- bb_res_sex
+bb_res_sex2$Sex.Coeff.1 <- bb_res_sex2$Sex.Coeff.1*100
+#bb_res_sex2 <- bb_res_sex2[which(bb_res_sex2$Sex_P <= bonfP),] 
+
+pdf('Cereb Eff2.pdf', onefile = TRUE, w = 10, h= 10)
+ggscatter(bb_res_age2, x = 'Age_Beta', y = 'Age.Coeff',
           add = 'reg.line',
           add.params = list(color = 'blue', fill = 'lightgray'),
           conf.int = T) +
   stat_cor(method = 'pearson') +
-  labs(title = "Correlation between UK and Indian significant sites on age (frontal)",
-       x = 'India', y = 'UK')
+  labs(title = "Effect size of significant Indian sites against UK sites on age (cerebellum)",
+       x = 'India', y = 'UK')+
+   theme(plot.title = element_text(hjust = 0.5))
 
-ggscatter(bb_res_sex, x = 'Sex_Beta', y = 'Sex.Coeff.M',
+ggscatter(bb_res_sex2, x = 'Sex_Beta', y = 'Sex.Coeff.1',
           add = 'reg.line',
           add.params = list(color = 'blue', fill = 'lightgray'),
           conf.int = T) +
   stat_cor(method = 'pearson') +
-  labs(title = "Correlation between UK and Indian significant sites on sex (frontal)",
-       x = 'India', y = 'UK')
+  labs(title = "Effect size of significant Indian sites against UK sites on sex (cerebellum)",
+       x = 'India', y = 'UK') +
+   theme(plot.title = element_text(hjust = 0.5))
+dev.off()
 
 ```
 
