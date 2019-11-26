@@ -462,5 +462,67 @@ dev.off()
 ```
 
 
+``` {r GO term analysis Age, warning = F}
+#India frontal (Age)
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+library(limma)
+ann <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+#res2 <- res #run this once then comment it out
+#AD
+res <- res2
+index<-which(res$Age_P<=0.001)# this can be set depending on the p-value disribution of your dataset we normally set it to <p=1x10-5
+background<-rownames(res) #take the original rownames of res
+rownames(res)[index]->test #take the rownames of res which have AD_P less than 0.001
+
+gst <- gometh(sig.cpg=test, all.cpg=background, collection="GO", plot.bias = FALSE, prior.prob = TRUE)# this is using the GO term
+## Warning in alias2SymbolTable(flat$symbol): Multiple symbols ignored for one
+## or more aliases
+gst<-gst[order(gst$P.DE),]
+head(gst)
+
+gst2 <- gst[1:5,] #seelct top 5 terms
+gst2 <- gst2[order(gst2$P.DE, decreasing = T),] #order it so that the plot goes from most to least sig
+gst2$P.DE <- signif(gst2$P.DE,3) #shorten the p.vals to three significant figures
+
+gst2$Term<- factor(gst2$Term, levels = gst2$Term) #lock it as factors so it does not go in alphabetical order
+pdf('GO India Cereb Age.pdf') 
+par(mar =c(15,15,15,30))
+ggplot(gst2, aes(x =Term, y = N)) +
+  geom_bar(fill = 'royalblue', stat = 'identity') +
+  coord_flip() + 
+  labs(x = "", y = "", title = 'Top 5 significant GO terms for age in India frontal samples') +
+  geom_text(data=gst2,aes(x=Term,y=N,label=P.DE),position = position_stack(vjust = 0.5)) + #adds the p.val text to GO terms
+  theme_classic()
+dev.off()
+
+
+#UK frontal (Age)
+index<-which(bb$Age.P<=0.001)# this can be set depending on the p-value disribution of your dataset we normally set it to <p=1x10-5
+background<-rownames(bb) #take the original rownames of res
+rownames(bb)[index]->test #take the rownames of res which have AD_P less than 0.001
+
+gst <- gometh(sig.cpg=test, all.cpg=background, collection="GO", plot.bias = FALSE, prior.prob = TRUE)# this is using the GO term
+## Warning in alias2SymbolTable(flat$symbol): Multiple symbols ignored for one
+## or more aliases
+gst<-gst[order(gst$P.DE),]
+head(gst)
+
+gst2 <- gst[1:5,] #seelct top 5 terms
+gst2 <- gst2[order(gst2$P.DE, decreasing = T),] #order it so that the plot goes from most to least sig
+gst2$P.DE <- signif(gst2$P.DE,3) #shorten the p.vals to three significant figures
+
+gst2$Term<- factor(gst2$Term, levels = gst2$Term) #lock it as factors so it does not go in alphabetical order
+pdf('GO UK Cereb Age.pdf') 
+par(mar =c(15,15,15,30))
+ggplot(gst2, aes(x =Term, y = N)) +
+  geom_bar(fill = 'royalblue', stat = 'identity') +
+  coord_flip() + 
+  labs(x = "", y = "", title = 'Top 5 significant GO terms for age in UK frontal samples') +
+  geom_text(data=gst2,aes(x=Term,y=N,label=P.DE),position = position_stack(vjust = 0.5)) + #adds the p.val text to GO terms
+  theme_classic()
+dev.off()
+
+```
 
 
