@@ -1,0 +1,4 @@
+#mQTL
+
+
+This repo contains several scripts that can be used to run mQTL using DNAmethyaltion data (stores as mset) and SNP data(stores as bedfiles).
