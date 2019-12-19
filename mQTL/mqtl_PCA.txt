@@ -1,0 +1,10 @@
+##Allows eigencal + eigenvec to be calculated from out genotype data
+#we want to make a pca of our data to understand its distription
+
+#LD prune??
+plink2 --bfile nimhams2 --indep 50 5 1.5 --out nimhams2.ld
+plink2 --bfile nimhams2 --extract nimhams2.ld.prune.in --make-bed --out nimhams2.ld.prune
+
+# use GCTA to calc PCs
+gcta64 --bfile nimhams2.ld.prune --make-grm-bin --autosome --out nimhams2
+gcta64 --grm nimhams2 --pca --out nimhams2.pca
