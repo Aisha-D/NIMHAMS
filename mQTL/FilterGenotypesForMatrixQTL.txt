@@ -1,0 +1,27 @@
+cd /gpfs/ts0/scratch/and202/NIMHAMS/
+
+mkdir MatrixEQTL
+
+#the sex info in the fam file needs update(do once)
+plink2 --bfile nimhams --update-sex nimhams_sexupdate.txt --make-bed --out nimhams2
+
+
+for chr in {1..22} 
+do 
+plink2 --bfile nimhams2 --keep DNAmSamples.txt --maf 0.05 --geno 0.05 --hwe 0.001 --chr ${chr} --recode A --out mQTL/Ind_maf_geno_mind_hwe_chr${chr}; 
+
+plink2 --bfile nimhams2 --keep DNAmSamples.txt --maf 0.05 --geno 0.05 --hwe 0.001 --chr ${chr} --make-bed --out mQTL/Ind_maf_geno_mind_hwe_chr${chr}; 
+done
+
+
+for chr in {1..22}
+do
+	plink2 --bfile  mQTL/Ind_maf_geno_mind_hwe_chr${chr} --freq --out mQTL/Ind_maf_geno_mind_hwe_chr${chr}_freq; 
+done
+
+
+
+
+#Not in main script but note to see bed files
+#seeing bed files by changing to ped
+plink2 --bfile UKHLS_genetic_epi --recode --tab --out /mnt/data1/NIMHANS/Down_stream_analysis/NIMHAMSa/mQTL/epicqc_view
